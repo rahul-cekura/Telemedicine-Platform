@@ -7,7 +7,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm install --omit=dev
+RUN npm install
 
 # Copy application files
 COPY . .
@@ -15,5 +15,5 @@ COPY . .
 # Expose port
 EXPOSE 5000
 
-# Run migrations script which then starts the server
-CMD ["node", "run-migrations.js"]
+# Start server (migrations run automatically in initializeDatabase)
+CMD ["node", "index.js"]
