@@ -1,7 +1,7 @@
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "server/Dockerfile"
-watchPatterns = ["server/**"]
+buildContext = "server"
 
 [deploy]
 startCommand = "node index.js"
