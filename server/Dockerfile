@@ -6,8 +6,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies (including knex)
-RUN npm ci --only=production
+# Install ALL dependencies (including dev dependencies like knex CLI)
+RUN npm ci
 
 # Copy application files
 COPY . .
