@@ -48,10 +48,6 @@ services:
         condition: service_healthy
     networks:
       - telemedicine-network
-    volumes:
-      - ./server:/app
-      - /app/node_modules
-    command: sh -c "npx knex migrate:latest && node index.js"
 
   # Frontend Client
   client:

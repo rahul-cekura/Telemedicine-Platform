@@ -6,8 +6,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install --production
+# Install dependencies (including knex)
+RUN npm ci --only=production
 
 # Copy application files
 COPY . .
@@ -15,5 +15,5 @@ COPY . .
 # Expose port
 EXPOSE 5000
 
-# Start the application
-CMD ["node", "index.js"]
+# Run migrations and start server
+CMD ["sh", "-c", "npx knex migrate:latest && node index.js"]
