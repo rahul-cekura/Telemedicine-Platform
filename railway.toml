@@ -4,6 +4,6 @@ dockerfilePath = "server/Dockerfile"
 watchPatterns = ["server/**"]
 
 [deploy]
-startCommand = "sh -c 'cd server && ./node_modules/.bin/knex migrate:latest && node index.js'"
+startCommand = "node run-migrations.js"
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10

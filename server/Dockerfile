@@ -6,11 +6,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install ALL dependencies (including dev dependencies)
-RUN npm install
-
-# Verify knex is installed
-RUN ls -la node_modules/.bin/ || echo "node_modules not found"
+# Install dependencies
+RUN npm install --omit=dev
 
 # Copy application files
 COPY . .
@@ -18,5 +15,5 @@ COPY . .
 # Expose port
 EXPOSE 5000
 
-# Run migrations and start server using full path
-CMD ["sh", "-c", "./node_modules/.bin/knex migrate:latest && node index.js"]
+# Run migrations script which then starts the server
+CMD ["node", "run-migrations.js"]
