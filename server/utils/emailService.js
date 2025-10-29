@@ -285,7 +285,7 @@ async function sendAppointmentReminder(email, firstName, appointment) {
 async function sendPrescriptionNotification(email, firstName, prescription) {
   try {
     const transporter = createTransporter();
-    
+
     const prescribedDate = new Date(prescription.prescribed_date).toLocaleDateString();
 
     const mailOptions = {
