@@ -64,6 +64,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
         setIsConnected(false);
       };
     }
+    return undefined;
   }, [user]);
 
   const joinCall = (callId: string) => {

@@ -53,19 +53,22 @@ router.post('/register', registerValidation, async (req, res) => {
     const saltRounds = 12;
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
+    // Prepare user data - convert empty strings to null for optional fields
+    const userData = {
+      email,
+      password_hash: passwordHash,
+      first_name: firstName,
+      last_name: lastName,
+      phone,
+      role,
+      date_of_birth: dateOfBirth && dateOfBirth.trim() !== '' ? dateOfBirth : null,
+      address: address && address.trim() !== '' ? address : null,
+      email_verified: false
+    };
+
     // Create user
     const [user] = await db('users')
-      .insert({
-        email,
-        password_hash: passwordHash,
-        first_name: firstName,
-        last_name: lastName,
-        phone,
-        role,
-        date_of_birth: dateOfBirth,
-        address,
-        email_verified: false
-      })
+      .insert(userData)
       .returning(['id', 'email', 'first_name', 'last_name', 'role', 'email_verified']);
 
     // Create role-specific profile
@@ -74,10 +77,11 @@ router.post('/register', registerValidation, async (req, res) => {
         user_id: user.id
       });
     } else if (role === 'doctor') {
+      const { specialization, consultationFee } = req.body;
       await db('doctors').insert({
         user_id: user.id,
-        specialization: req.body.specialization || 'General Practice',
-        consultation_fee: req.body.consultationFee || 100.00
+        specialization: specialization && specialization.trim() !== '' ? specialization : 'General Practice',
+        consultation_fee: consultationFee && consultationFee > 0 ? consultationFee : 100.00
       });
     }
 

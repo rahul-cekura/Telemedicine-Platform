@@ -335,9 +335,26 @@ router.get('/doctors', async (req, res) => {
       });
     }
 
-    // Get total count
-    const totalQuery = query.clone().count('* as count').first();
-    const total = await totalQuery;
+    // Get total count with a separate simpler query
+    let countQuery = db('doctors')
+      .join('users', 'doctors.user_id', 'users.id')
+      .where('doctors.is_available', true)
+      .where('users.status', 'active')
+      .count('* as count');
+
+    if (specialization) {
+      countQuery = countQuery.where('doctors.specialization', 'ilike', `%${specialization}%`);
+    }
+
+    if (search) {
+      countQuery = countQuery.where(function() {
+        this.where('users.first_name', 'ilike', `%${search}%`)
+          .orWhere('users.last_name', 'ilike', `%${search}%`)
+          .orWhere('doctors.specialization', 'ilike', `%${search}%`);
+      });
+    }
+
+    const total = await countQuery.first();
     const totalCount = parseInt(total.count);
 
     // Get paginated results

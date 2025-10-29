@@ -330,7 +330,7 @@ const Dashboard: React.FC = () => {
                     {user?.firstName} {user?.lastName}
                   </Typography>
                   <Typography variant="body2" color="textSecondary">
-                    {user?.role?.charAt(0).toUpperCase() + user?.role?.slice(1)}
+                    {user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : ''}
                   </Typography>
                   <Chip
                     label={user?.emailVerified ? 'Verified' : 'Unverified'}

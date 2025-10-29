@@ -2,7 +2,7 @@ exports.up = function(knex) {
   return knex.schema.createTable('doctors', function(table) {
     table.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
     table.uuid('user_id').references('id').inTable('users').onDelete('CASCADE');
-    table.string('license_number').unique().notNullable();
+    table.string('license_number').unique(); // Made nullable for registration
     table.string('specialization').notNullable();
     table.text('bio');
     table.decimal('consultation_fee', 10, 2);

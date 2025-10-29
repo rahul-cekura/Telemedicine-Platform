@@ -1,8 +1,18 @@
-const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
+
+// Check if email is configured
+const isEmailConfigured = () => {
+  return process.env.SMTP_USER && process.env.SMTP_PASS;
+};
 
 // Create email transporter
 const createTransporter = () => {
+  // Only require nodemailer if email is configured
+  if (!isEmailConfigured()) {
+    return null;
+  }
+
+  const nodemailer = require('nodemailer');
   return nodemailer.createTransporter({
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
     port: process.env.SMTP_PORT || 587,
@@ -21,12 +31,19 @@ const createTransporter = () => {
  */
 async function sendVerificationEmail(email, firstName) {
   try {
+    // Check if email is configured
+    if (!isEmailConfigured()) {
+      console.log(`⚠️  Email not configured. Skipping verification email to ${email}`);
+      console.log(`ℹ️  In development, email verification is optional.`);
+      return true; // Return success to not block registration
+    }
+
     const transporter = createTransporter();
-    
+
     // Generate verification token
     const verificationToken = jwt.sign(
-      { 
-        email, 
+      {
+        email,
         type: 'email_verification',
         userId: null // Will be set when user is created
       },
@@ -63,6 +80,11 @@ async function sendVerificationEmail(email, firstName) {
     return true;
   } catch (error) {
     console.error('Failed to send verification email:', error);
+    // In development, don't throw error - just log and continue
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`⚠️  Continuing without email in development mode`);
+      return true;
+    }
     throw error;
   }
 }
@@ -75,8 +97,15 @@ async function sendVerificationEmail(email, firstName) {
  */
 async function sendPasswordResetEmail(email, firstName, resetToken) {
   try {
+    // Check if email is configured
+    if (!isEmailConfigured()) {
+      console.log(`⚠️  Email not configured. Skipping password reset email to ${email}`);
+      console.log(`ℹ️  In development, password reset emails are optional.`);
+      return true;
+    }
+
     const transporter = createTransporter();
-    
+
     const resetUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
 
     const mailOptions = {
@@ -107,6 +136,10 @@ async function sendPasswordResetEmail(email, firstName, resetToken) {
     return true;
   } catch (error) {
     console.error('Failed to send password reset email:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`⚠️  Continuing without email in development mode`);
+      return true;
+    }
     throw error;
   }
 }
@@ -119,8 +152,15 @@ async function sendPasswordResetEmail(email, firstName, resetToken) {
  */
 async function sendAppointmentConfirmation(email, firstName, appointment) {
   try {
+    // Check if email is configured
+    if (!isEmailConfigured()) {
+      console.log(`⚠️  Email not configured. Skipping appointment confirmation email to ${email}`);
+      console.log(`ℹ️  In development, appointment confirmation emails are optional.`);
+      return true;
+    }
+
     const transporter = createTransporter();
-    
+
     const appointmentDate = new Date(appointment.scheduled_at).toLocaleString();
     const meetingUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/video-call/${appointment.id}`;
 
@@ -163,6 +203,10 @@ async function sendAppointmentConfirmation(email, firstName, appointment) {
     return true;
   } catch (error) {
     console.error('Failed to send appointment confirmation:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`⚠️  Continuing without email in development mode`);
+      return true;
+    }
     throw error;
   }
 }
@@ -175,8 +219,14 @@ async function sendAppointmentConfirmation(email, firstName, appointment) {
  */
 async function sendAppointmentReminder(email, firstName, appointment) {
   try {
+    // Check if email is configured
+    if (!isEmailConfigured()) {
+      console.log(`⚠️  Email not configured. Skipping appointment reminder email to ${email}`);
+      return true;
+    }
+
     const transporter = createTransporter();
-    
+
     const appointmentDate = new Date(appointment.scheduled_at).toLocaleString();
     const meetingUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/video-call/${appointment.id}`;
 
@@ -218,6 +268,10 @@ async function sendAppointmentReminder(email, firstName, appointment) {
     return true;
   } catch (error) {
     console.error('Failed to send appointment reminder:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`⚠️  Continuing without email in development mode`);
+      return true;
+    }
     throw error;
   }
 }

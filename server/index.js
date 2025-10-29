@@ -30,6 +30,17 @@ const io = new Server(server, {
   }
 });
 
+// Trust proxy - needed for rate limiting behind proxies/load balancers
+app.set('trust proxy', 1);
+
+// CORS configuration - MUST be before other middleware to handle preflight requests
+app.use(cors({
+  origin: process.env.CORS_ORIGIN?.split(',') || ["http://localhost:3000", "http://localhost:3001"],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
+
 // Security middleware
 app.use(helmet({
   contentSecurityPolicy: {
@@ -52,14 +63,6 @@ const limiter = rateLimit({
   legacyHeaders: false,
 });
 app.use(limiter);
-
-// CORS configuration
-app.use(cors({
-  origin: process.env.CORS_ORIGIN?.split(',') || ["http://localhost:3000"],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-}));
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
@@ -115,23 +118,71 @@ io.on('connection', (socket) => {
   
   // Handle video call events
   socket.on('join-call', (data) => {
-    socket.join(`call_${data.callId}`);
-    socket.to(`call_${data.callId}`).emit('user-joined', {
-      userId: socket.userId,
-      userRole: socket.userRole
+    const roomName = `call_${data.appointmentId}`;
+
+    // Get number of clients in the room before joining
+    const clientsInRoom = io.sockets.adapter.rooms.get(roomName);
+    const numClients = clientsInRoom ? clientsInRoom.size : 0;
+
+    console.log(`User ${socket.userId} joining call ${data.appointmentId}. Room has ${numClients} users.`);
+
+    // Join the room
+    socket.join(roomName);
+
+    // Determine if this user is the initiator (first to join)
+    const isInitiator = numClients === 0;
+
+    // Send confirmation to the user who joined
+    socket.emit('room-joined', {
+      isInitiator: isInitiator,
+      userId: socket.userId
     });
+
+    // If there's already someone in the room, notify them
+    if (numClients > 0) {
+      console.log(`Notifying existing user(s) that ${socket.userId} joined`);
+      socket.to(roomName).emit('user-joined', {
+        userId: socket.userId,
+        userRole: socket.userRole
+      });
+    }
   });
-  
+
   socket.on('leave-call', (data) => {
-    socket.leave(`call_${data.callId}`);
-    socket.to(`call_${data.callId}`).emit('user-left', {
+    const roomName = `call_${data.appointmentId}`;
+    socket.leave(roomName);
+    console.log(`User ${socket.userId} left call ${data.appointmentId}`);
+
+    // Notify others in the room
+    socket.to(roomName).emit('user-left', {
       userId: socket.userId
     });
   });
-  
-  socket.on('call-signal', (data) => {
-    socket.to(`call_${data.callId}`).emit('call-signal', {
-      signal: data.signal,
+
+  // WebRTC signaling events
+  socket.on('call-offer', (data) => {
+    const roomName = `call_${data.appointmentId}`;
+    console.log(`📤 Forwarding offer from user ${socket.userId} in call ${data.appointmentId}`);
+    socket.to(roomName).emit('call-offer', {
+      offer: data.offer,
+      from: socket.userId
+    });
+  });
+
+  socket.on('call-answer', (data) => {
+    const roomName = `call_${data.appointmentId}`;
+    console.log(`📤 Forwarding answer from user ${socket.userId} in call ${data.appointmentId}`);
+    socket.to(roomName).emit('call-answer', {
+      answer: data.answer,
+      from: socket.userId
+    });
+  });
+
+  socket.on('ice-candidate', (data) => {
+    const roomName = `call_${data.appointmentId}`;
+    console.log(`📤 Forwarding ICE candidate from user ${socket.userId} in call ${data.appointmentId}`);
+    socket.to(roomName).emit('ice-candidate', {
+      candidate: data.candidate,
       from: socket.userId
     });
   });
@@ -143,6 +194,11 @@ io.on('connection', (socket) => {
 
 // Error handling middleware
 app.use(errorHandler);
+
+// Favicon handler
+app.get('/favicon.ico', (req, res) => {
+  res.status(204).end();
+});
 
 // 404 handler
 app.use('*', (req, res) => {

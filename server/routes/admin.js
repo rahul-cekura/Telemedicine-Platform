@@ -167,9 +167,26 @@ router.get('/users', async (req, res) => {
       });
     }
 
-    // Get total count
-    const totalQuery = query.clone().count('* as count').first();
-    const total = await totalQuery;
+    // Get total count with a separate simpler query
+    let countQuery = db('users').count('* as count');
+
+    if (role) {
+      countQuery = countQuery.where('users.role', role);
+    }
+
+    if (status) {
+      countQuery = countQuery.where('users.status', status);
+    }
+
+    if (search) {
+      countQuery = countQuery.where(function() {
+        this.where('users.first_name', 'ilike', `%${search}%`)
+          .orWhere('users.last_name', 'ilike', `%${search}%`)
+          .orWhere('users.email', 'ilike', `%${search}%`);
+      });
+    }
+
+    const total = await countQuery.first();
     const totalCount = parseInt(total.count);
 
     // Get paginated results
@@ -375,14 +392,39 @@ router.get('/appointments', async (req, res) => {
     if (startDate) {
       query = query.where('appointments.scheduled_at', '>=', startDate);
     }
-    
+
     if (endDate) {
       query = query.where('appointments.scheduled_at', '<=', endDate);
     }
 
-    // Get total count
-    const totalQuery = query.clone().count('* as count').first();
-    const total = await totalQuery;
+    // Get total count with a separate simpler query
+    let countQuery = db('appointments').count('* as count');
+
+    if (status) {
+      countQuery = countQuery.where('appointments.status', status);
+    }
+
+    if (type) {
+      countQuery = countQuery.where('appointments.type', type);
+    }
+
+    if (doctorId) {
+      countQuery = countQuery.where('appointments.doctor_id', doctorId);
+    }
+
+    if (patientId) {
+      countQuery = countQuery.where('appointments.patient_id', patientId);
+    }
+
+    if (startDate) {
+      countQuery = countQuery.where('appointments.scheduled_at', '>=', startDate);
+    }
+
+    if (endDate) {
+      countQuery = countQuery.where('appointments.scheduled_at', '<=', endDate);
+    }
+
+    const total = await countQuery.first();
     const totalCount = parseInt(total.count);
 
     // Get paginated results
@@ -468,14 +510,27 @@ router.get('/billing', async (req, res) => {
     if (startDate) {
       query = query.where('billing.created_at', '>=', startDate);
     }
-    
+
     if (endDate) {
       query = query.where('billing.created_at', '<=', endDate);
     }
 
-    // Get total count
-    const totalQuery = query.clone().count('* as count').first();
-    const total = await totalQuery;
+    // Get total count with a separate simpler query
+    let countQuery = db('billing').count('* as count');
+
+    if (status) {
+      countQuery = countQuery.where('billing.status', status);
+    }
+
+    if (startDate) {
+      countQuery = countQuery.where('billing.created_at', '>=', startDate);
+    }
+
+    if (endDate) {
+      countQuery = countQuery.where('billing.created_at', '<=', endDate);
+    }
+
+    const total = await countQuery.first();
     const totalCount = parseInt(total.count);
 
     // Get paginated results

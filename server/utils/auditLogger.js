@@ -88,14 +88,39 @@ async function getAuditLogs(filters = {}, page = 1, limit = 50) {
     if (filters.startDate) {
       query = query.where('audit_logs.timestamp', '>=', filters.startDate);
     }
-    
+
     if (filters.endDate) {
       query = query.where('audit_logs.timestamp', '<=', filters.endDate);
     }
 
-    // Get total count
-    const totalQuery = query.clone().count('* as count').first();
-    const total = await totalQuery;
+    // Get total count with a separate simpler query
+    let countQuery = db('audit_logs').count('* as count');
+
+    if (filters.userId) {
+      countQuery = countQuery.where('audit_logs.user_id', filters.userId);
+    }
+
+    if (filters.action) {
+      countQuery = countQuery.where('audit_logs.action', filters.action);
+    }
+
+    if (filters.resourceType) {
+      countQuery = countQuery.where('audit_logs.resource_type', filters.resourceType);
+    }
+
+    if (filters.resourceId) {
+      countQuery = countQuery.where('audit_logs.resource_id', filters.resourceId);
+    }
+
+    if (filters.startDate) {
+      countQuery = countQuery.where('audit_logs.timestamp', '>=', filters.startDate);
+    }
+
+    if (filters.endDate) {
+      countQuery = countQuery.where('audit_logs.timestamp', '<=', filters.endDate);
+    }
+
+    const total = await countQuery.first();
     const totalCount = parseInt(total.count);
 
     // Get paginated results

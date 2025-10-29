@@ -220,9 +220,28 @@ router.get('/', async (req, res) => {
       query = query.where('prescriptions.status', status);
     }
 
-    // Get total count
-    const totalQuery = query.clone().count('* as count').first();
-    const total = await totalQuery;
+    // Get total count with a separate simpler query
+    let countQuery = db('prescriptions').count('* as count');
+
+    if (req.user.role === 'patient') {
+      const patient = await db('patients')
+        .select('id')
+        .where('user_id', req.user.id)
+        .first();
+      countQuery = countQuery.where('prescriptions.patient_id', patient.id);
+    } else if (req.user.role === 'doctor') {
+      const doctor = await db('doctors')
+        .select('id')
+        .where('user_id', req.user.id)
+        .first();
+      countQuery = countQuery.where('prescriptions.doctor_id', doctor.id);
+    }
+
+    if (status) {
+      countQuery = countQuery.where('prescriptions.status', status);
+    }
+
+    const total = await countQuery.first();
     const totalCount = parseInt(total.count);
 
     // Get paginated results

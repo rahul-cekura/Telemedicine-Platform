@@ -15,7 +15,7 @@ import {
   MenuItem,
   Grid,
 } from '@mui/material';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { useAuth } from '../../contexts/AuthContext';
@@ -70,9 +70,23 @@ const Register: React.FC = () => {
     register,
     handleSubmit,
     watch,
+    control,
     formState: { errors },
   } = useForm<RegisterFormData>({
     resolver: yupResolver(schema),
+    defaultValues: {
+      email: '',
+      password: '',
+      confirmPassword: '',
+      firstName: '',
+      lastName: '',
+      phone: '',
+      role: 'patient',
+      dateOfBirth: '',
+      address: '',
+      specialization: '',
+      consultationFee: 0,
+    },
   });
 
   const selectedRole = watch('role');
@@ -173,18 +187,23 @@ const Register: React.FC = () => {
                 />
               </Grid>
               <Grid item xs={12}>
-                <FormControl fullWidth required>
+                <FormControl fullWidth required error={!!errors.role}>
                   <InputLabel id="role-label">Account Type</InputLabel>
-                  <Select
-                    labelId="role-label"
-                    id="role"
-                    label="Account Type"
-                    {...register('role')}
-                    error={!!errors.role}
-                  >
-                    <MenuItem value="patient">Patient</MenuItem>
-                    <MenuItem value="doctor">Doctor</MenuItem>
-                  </Select>
+                  <Controller
+                    name="role"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        {...field}
+                        labelId="role-label"
+                        id="role"
+                        label="Account Type"
+                      >
+                        <MenuItem value="patient">Patient</MenuItem>
+                        <MenuItem value="doctor">Doctor</MenuItem>
+                      </Select>
+                    )}
+                  />
                 </FormControl>
                 {errors.role && (
                   <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 2 }}>

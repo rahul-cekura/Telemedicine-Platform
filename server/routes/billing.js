@@ -323,9 +323,30 @@ router.get('/invoices', async (req, res) => {
       query = query.where('billing.status', status);
     }
 
-    // Get total count
-    const totalQuery = query.clone().count('* as count').first();
-    const total = await totalQuery;
+    // Get total count with a separate simpler query
+    let countQuery = db('billing').count('* as count');
+
+    if (req.user.role === 'patient') {
+      const patient = await db('patients')
+        .select('id')
+        .where('user_id', req.user.id)
+        .first();
+      countQuery = countQuery.where('billing.patient_id', patient.id);
+    } else if (req.user.role === 'doctor') {
+      const doctor = await db('doctors')
+        .select('id')
+        .where('user_id', req.user.id)
+        .first();
+      countQuery = countQuery
+        .join('appointments', 'billing.appointment_id', 'appointments.id')
+        .where('appointments.doctor_id', doctor.id);
+    }
+
+    if (status) {
+      countQuery = countQuery.where('billing.status', status);
+    }
+
+    const total = await countQuery.first();
     const totalCount = parseInt(total.count);
 
     // Get paginated results

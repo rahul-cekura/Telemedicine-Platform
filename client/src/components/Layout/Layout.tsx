@@ -24,7 +24,6 @@ import {
   Dashboard,
   Person,
   CalendarToday,
-  VideoCall,
   Description,
   LocalPharmacy,
   Payment,
