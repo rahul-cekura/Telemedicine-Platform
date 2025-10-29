@@ -1,10 +1,23 @@
 const knex = require('knex');
 const crypto = require('crypto');
 
+// Debug: Log environment variables
+console.log('🔍 Database Configuration Debug:');
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
+console.log('DATABASE_URL (first 50 chars):', process.env.DATABASE_URL ? process.env.DATABASE_URL.substring(0, 50) + '...' : 'NOT SET');
+console.log('DB_HOST:', process.env.DB_HOST);
+console.log('DB_PORT:', process.env.DB_PORT);
+console.log('DB_USER:', process.env.DB_USER);
+console.log('DB_NAME:', process.env.DB_NAME);
+
 // Use DATABASE_URL if available (Railway, Heroku, etc.), otherwise use individual env vars
 const config = {
   client: 'pg',
-  connection: process.env.DATABASE_URL || {
+  connection: process.env.DATABASE_URL ? {
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
+  } : {
     host: process.env.DB_HOST || 'localhost',
     port: process.env.DB_PORT || 5432,
     user: process.env.DB_USER || 'postgres',
@@ -24,13 +37,7 @@ const config = {
   }
 };
 
-// If using DATABASE_URL with SSL, ensure SSL is configured
-if (process.env.DATABASE_URL && process.env.NODE_ENV === 'production') {
-  config.connection = {
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
-  };
-}
+console.log('📊 Using connection config:', process.env.DATABASE_URL ? 'DATABASE_URL' : 'Individual env vars');
 
 const db = knex(config);
 
