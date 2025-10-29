@@ -1,9 +1,10 @@
 const knex = require('knex');
 const crypto = require('crypto');
 
+// Use DATABASE_URL if available (Railway, Heroku, etc.), otherwise use individual env vars
 const config = {
   client: 'pg',
-  connection: {
+  connection: process.env.DATABASE_URL || {
     host: process.env.DB_HOST || 'localhost',
     port: process.env.DB_PORT || 5432,
     user: process.env.DB_USER || 'postgres',
@@ -22,6 +23,14 @@ const config = {
     max: 10
   }
 };
+
+// If using DATABASE_URL with SSL, ensure SSL is configured
+if (process.env.DATABASE_URL && process.env.NODE_ENV === 'production') {
+  config.connection = {
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
+  };
+}
 
 const db = knex(config);
 
