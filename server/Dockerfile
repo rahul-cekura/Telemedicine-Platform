@@ -13,6 +13,9 @@ RUN npm install
 # Copy all application files
 COPY . .
 
+# Debug: List what was copied
+RUN echo "=== Files in /app ===" && ls -la /app && echo "=== Checking for index.js ===" && ls -la /app/index.js || echo "index.js NOT FOUND"
+
 # Expose port 5000
 EXPOSE 5000
 
