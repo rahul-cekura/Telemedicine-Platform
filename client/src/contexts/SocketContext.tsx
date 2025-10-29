@@ -35,10 +35,18 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
   useEffect(() => {
     if (user) {
       const token = localStorage.getItem('token');
-      const newSocket = io(process.env.REACT_APP_WEBSOCKET_URL || 'http://localhost:5000', {
+      const socketUrl = process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000';
+      console.log('🔌 Connecting to Socket.IO:', socketUrl);
+
+      const newSocket = io(socketUrl, {
         auth: {
           token,
         },
+        transports: ['websocket', 'polling'], // Try WebSocket first, fallback to polling
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionAttempts: 5,
+        timeout: 20000,
       });
 
       newSocket.on('connect', () => {
