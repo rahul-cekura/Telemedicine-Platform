@@ -136,56 +136,41 @@ const VideoCall: React.FC = () => {
     };
   }, []);
 
-  // Join call room immediately when socket is ready (don't wait for media)
+  // Setup WebRTC connection - unified approach
   useEffect(() => {
-    if (!socket || !appointmentId || !socket.connected) {
-      return;
-    }
-
-    console.log('📞 Joining call room early:', appointmentId);
-    socket.emit('join-call', { appointmentId, userId: user?.id });
-
-    return () => {
-      console.log('📴 Leaving call room');
-      socket.emit('leave-call', { appointmentId });
-    };
-  }, [socket, appointmentId, user?.id]);
-
-  // Setup WebRTC connection
-  useEffect(() => {
-    console.log('🔍 WebRTC useEffect triggered:', {
+    console.log('🔍 WebRTC setup check:', {
       hasSocket: !!socket,
       socketConnected: socket?.connected,
       hasStream: !!localStreamRef.current,
       appointmentId: appointmentId,
       userId: user?.id,
-      hasJoined: hasJoinedCall.current,
       isMediaReady: isMediaReady
     });
 
-    if (!socket || !appointmentId) {
-      console.log('⏳ Waiting for socket or appointmentId...');
+    // Basic requirements
+    if (!socket || !appointmentId || !user?.id) {
+      console.log('⏳ Waiting for socket, appointmentId, or user...');
       return;
     }
 
     if (!socket.connected) {
-      console.log('⏳ Socket exists but not connected yet, waiting...');
+      console.log('⏳ Socket not connected yet...');
       return;
     }
 
-    // Prevent duplicate joins
+    // Wait for media to be ready
+    if (!isMediaReady || !localStreamRef.current) {
+      console.log('⏳ Waiting for media devices...');
+      return;
+    }
+
+    // Prevent duplicate setup if already initialized
     if (hasJoinedCall.current) {
-      console.log('⚠️ Already joined this call, skipping setup');
+      console.log('⚠️ Already initialized, skipping');
       return;
     }
 
-    // Wait for media before creating peer connection
-    if (!localStreamRef.current) {
-      console.log('⏳ Waiting for media stream before creating peer connection...');
-      return;
-    }
-
-    console.log('🚀 Setting up WebRTC connection for appointment:', appointmentId);
+    console.log('🚀 All requirements met, setting up call');
     hasJoinedCall.current = true;
 
     const createPeerConnection = () => {
@@ -426,12 +411,16 @@ const VideoCall: React.FC = () => {
       }
     });
 
-    // Note: join-call is emitted by the earlier useEffect to avoid delay
+    // Join the call room
+    socket.emit('join-call', { appointmentId, userId: user?.id });
 
     return () => {
       console.log('🧹 Cleaning up WebRTC and socket listeners');
 
-      // Note: leave-call is handled by the earlier useEffect cleanup
+      // Leave the call room
+      if (socket && appointmentId) {
+        socket.emit('leave-call', { appointmentId });
+      }
 
       // Close peer connection
       if (peerConnectionRef.current) {
