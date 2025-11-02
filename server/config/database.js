@@ -43,39 +43,44 @@ const db = knex(config);
 
 // Encryption utilities for PHI data
 const algorithm = 'aes-256-gcm';
-const secretKey = process.env.ENCRYPTION_KEY || crypto.randomBytes(32);
-const ivKey = process.env.IV_KEY || crypto.randomBytes(16);
+// Ensure the key is exactly 32 bytes for AES-256
+const secretKey = process.env.ENCRYPTION_KEY
+  ? Buffer.from(process.env.ENCRYPTION_KEY, 'hex')
+  : crypto.randomBytes(32);
 
 function encrypt(text) {
   if (!text) return null;
-  
-  const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipher(algorithm, secretKey);
-  cipher.setAAD(iv);
-  
-  let encrypted = cipher.update(text, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-  
-  const authTag = cipher.getAuthTag();
-  
-  return {
-    encrypted,
-    iv: iv.toString('hex'),
-    authTag: authTag.toString('hex')
-  };
+
+  try {
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv(algorithm, secretKey, iv);
+
+    let encrypted = cipher.update(text, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+
+    const authTag = cipher.getAuthTag();
+
+    return {
+      encrypted,
+      iv: iv.toString('hex'),
+      authTag: authTag.toString('hex')
+    };
+  } catch (error) {
+    console.error('Encryption error:', error);
+    return null;
+  }
 }
 
 function decrypt(encryptedData) {
   if (!encryptedData || !encryptedData.encrypted) return null;
-  
+
   try {
     const iv = Buffer.from(encryptedData.iv, 'hex');
     const authTag = Buffer.from(encryptedData.authTag, 'hex');
-    
-    const decipher = crypto.createDecipher(algorithm, secretKey);
-    decipher.setAAD(iv);
+
+    const decipher = crypto.createDecipheriv(algorithm, secretKey, iv);
     decipher.setAuthTag(authTag);
-    
+
     let decrypted = decipher.update(encryptedData.encrypted, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
     

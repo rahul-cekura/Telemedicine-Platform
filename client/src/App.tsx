@@ -16,13 +16,11 @@ import AppointmentDetails from './pages/Appointments/AppointmentDetails';
 import VideoCall from './pages/VideoCall/VideoCall';
 import HealthRecords from './pages/HealthRecords/HealthRecords';
 import Prescriptions from './pages/Prescriptions/Prescriptions';
-import Billing from './pages/Billing/Billing';
 import Doctors from './pages/Doctors/Doctors';
 import DoctorDetails from './pages/Doctors/DoctorDetails';
 import AdminDashboard from './pages/Admin/AdminDashboard';
 import AdminUsers from './pages/Admin/AdminUsers';
 import AdminAppointments from './pages/Admin/AdminAppointments';
-import AdminBilling from './pages/Admin/AdminBilling';
 import AdminAuditLogs from './pages/Admin/AdminAuditLogs';
 import LoadingSpinner from './components/Common/LoadingSpinner';
 
@@ -140,7 +138,6 @@ const App: React.FC = () => {
         <Route path="video-call/:id" element={<VideoCall />} />
         <Route path="health-records" element={<HealthRecords />} />
         <Route path="prescriptions" element={<Prescriptions />} />
-        <Route path="billing" element={<Billing />} />
         <Route path="doctors" element={<Doctors />} />
         <Route path="doctors/:id" element={<DoctorDetails />} />
       </Route>
@@ -158,7 +155,6 @@ const App: React.FC = () => {
         <Route path="dashboard" element={<AdminDashboard />} />
         <Route path="users" element={<AdminUsers />} />
         <Route path="appointments" element={<AdminAppointments />} />
-        <Route path="billing" element={<AdminBilling />} />
         <Route path="audit-logs" element={<AdminAuditLogs />} />
       </Route>
 

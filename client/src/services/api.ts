@@ -154,6 +154,11 @@ class ApiService {
     return response.data;
   }
 
+  async getPatients(params?: any) {
+    const response = await this.api.get('/users/patients', { params });
+    return response.data;
+  }
+
   // Appointment endpoints
   async createAppointment(data: any) {
     const response = await this.api.post('/appointments', data);

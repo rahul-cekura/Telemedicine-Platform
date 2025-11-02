@@ -43,6 +43,7 @@ app.use(cors({
 
 // Security middleware
 app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
@@ -71,6 +72,10 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Compression and logging
 app.use(compression());
 app.use(morgan('combined'));
+
+// Serve static files from uploads directory
+const path = require('path');
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Health check endpoint
 app.get('/health', (req, res) => {

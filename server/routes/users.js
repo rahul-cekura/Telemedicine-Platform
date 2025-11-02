@@ -455,4 +455,85 @@ router.get('/doctors/:id', async (req, res) => {
   }
 });
 
+// @route   GET /api/users/patients
+// @desc    Get list of patients (for doctors to create prescriptions)
+// @access  Private (Doctor only)
+router.get('/patients', requireRole(['doctor']), async (req, res) => {
+  try {
+    const { search, page = 1, limit = 100 } = req.query;
+    const offset = (page - 1) * limit;
+
+    let query = db('patients')
+      .select(
+        'patients.id',
+        'users.first_name',
+        'users.last_name',
+        'users.email',
+        'users.phone',
+        'users.profile_image_url'
+      )
+      .join('users', 'patients.user_id', 'users.id')
+      .where('users.status', 'active');
+
+    // Apply search filter
+    if (search) {
+      query = query.where(function() {
+        this.where('users.first_name', 'ilike', `%${search}%`)
+          .orWhere('users.last_name', 'ilike', `%${search}%`)
+          .orWhere('users.email', 'ilike', `%${search}%`);
+      });
+    }
+
+    // Get total count
+    let countQuery = db('patients')
+      .join('users', 'patients.user_id', 'users.id')
+      .where('users.status', 'active')
+      .count('* as count');
+
+    if (search) {
+      countQuery = countQuery.where(function() {
+        this.where('users.first_name', 'ilike', `%${search}%`)
+          .orWhere('users.last_name', 'ilike', `%${search}%`)
+          .orWhere('users.email', 'ilike', `%${search}%`);
+      });
+    }
+
+    const total = await countQuery.first();
+    const totalCount = parseInt(total.count);
+
+    // Get paginated results
+    const patients = await query
+      .orderBy('users.last_name', 'asc')
+      .orderBy('users.first_name', 'asc')
+      .limit(limit)
+      .offset(offset);
+
+    res.json({
+      success: true,
+      data: {
+        patients: patients.map(patient => ({
+          id: patient.id,
+          name: `${patient.first_name} ${patient.last_name}`,
+          email: patient.email,
+          phone: patient.phone,
+          profileImage: patient.profile_image_url
+        })),
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: totalCount,
+          pages: Math.ceil(totalCount / limit)
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Get patients error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get patients'
+    });
+  }
+});
+
 module.exports = router;

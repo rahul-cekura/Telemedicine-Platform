@@ -96,12 +96,16 @@ router.post('/', requireRole(['doctor']), [
       })
       .returning('*');
 
-    // Send notification email to patient
-    await sendPrescriptionNotification(
-      patient.email,
-      patient.first_name,
-      prescription
-    );
+    // Send notification email to patient (optional - won't fail if email not configured)
+    try {
+      await sendPrescriptionNotification(
+        patient.email,
+        patient.first_name,
+        prescription
+      );
+    } catch (emailError) {
+      console.log('Email notification not sent (email service may not be configured):', emailError.message);
+    }
 
     // Log audit event
     await logAuditEvent({

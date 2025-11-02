@@ -26,7 +26,6 @@ import {
   CalendarToday,
   Description,
   LocalPharmacy,
-  Payment,
   People,
   AdminPanelSettings,
   Logout,
@@ -70,7 +69,6 @@ const Layout: React.FC = () => {
       { text: 'Appointments', icon: <CalendarToday />, path: '/appointments' },
       { text: 'Health Records', icon: <Description />, path: '/health-records' },
       { text: 'Prescriptions', icon: <LocalPharmacy />, path: '/prescriptions' },
-      { text: 'Billing', icon: <Payment />, path: '/billing' },
     ];
 
     if (user?.role === 'patient') {
@@ -82,7 +80,6 @@ const Layout: React.FC = () => {
         { text: 'Admin Dashboard', icon: <AdminPanelSettings />, path: '/admin/dashboard' },
         { text: 'Users', icon: <People />, path: '/admin/users' },
         { text: 'Appointments', icon: <CalendarToday />, path: '/admin/appointments' },
-        { text: 'Billing', icon: <Payment />, path: '/admin/billing' },
         { text: 'Audit Logs', icon: <Description />, path: '/admin/audit-logs' }
       );
     }
