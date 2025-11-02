@@ -45,6 +45,7 @@ const VideoCall: React.FC = () => {
   const screenStreamRef = useRef<MediaStream | null>(null);
   const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const hasJoinedCall = useRef<boolean>(false);
 
   // State
   const [isVideoOn, setIsVideoOn] = useState(true);
@@ -115,6 +116,7 @@ const VideoCall: React.FC = () => {
 
     return () => {
       // Cleanup on unmount
+      console.log('🧹 Cleaning up media devices');
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach(track => track.stop());
       }
@@ -131,7 +133,8 @@ const VideoCall: React.FC = () => {
       socketConnected: socket?.connected,
       hasStream: !!localStreamRef.current,
       appointmentId: appointmentId,
-      userId: user?.id
+      userId: user?.id,
+      hasJoined: hasJoinedCall.current
     });
 
     if (!socket || !localStreamRef.current || !appointmentId) {
@@ -144,7 +147,14 @@ const VideoCall: React.FC = () => {
       return;
     }
 
+    // Prevent duplicate joins
+    if (hasJoinedCall.current) {
+      console.log('⚠️ Already joined this call, skipping setup');
+      return;
+    }
+
     console.log('🚀 Setting up WebRTC connection for appointment:', appointmentId);
+    hasJoinedCall.current = true;
 
     const createPeerConnection = () => {
       console.log('📡 Creating peer connection');
@@ -389,7 +399,21 @@ const VideoCall: React.FC = () => {
     socket.emit('join-call', { appointmentId, userId: user?.id });
 
     return () => {
-      console.log('🧹 Cleaning up socket listeners');
+      console.log('🧹 Cleaning up WebRTC and socket listeners');
+
+      // Leave the call
+      if (socket && appointmentId && hasJoinedCall.current) {
+        console.log('📤 Leaving call:', appointmentId);
+        socket.emit('leave-call', { appointmentId });
+      }
+
+      // Close peer connection
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close();
+        peerConnectionRef.current = null;
+      }
+
+      // Remove socket listeners
       socket.off('call-offer');
       socket.off('call-answer');
       socket.off('ice-candidate');
@@ -397,8 +421,11 @@ const VideoCall: React.FC = () => {
       socket.off('user-joined');
       socket.off('user-left');
       socket.off('call-message');
+
+      // Reset join flag for potential re-mount
+      hasJoinedCall.current = false;
     };
-  }, [socket, appointmentId, user?.id, isChatOpen]);
+  }, [socket, appointmentId, user?.id]);
 
   // Toggle video
   const toggleVideo = () => {

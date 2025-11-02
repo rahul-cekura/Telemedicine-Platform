@@ -123,6 +123,12 @@ io.on('connection', (socket) => {
   socket.on('join-call', (data) => {
     const roomName = `call_${data.appointmentId}`;
 
+    // Check if this socket is already in this room
+    if (socket.rooms.has(roomName)) {
+      console.log(`⚠️ User ${socket.userId} already in call ${data.appointmentId}, ignoring duplicate join`);
+      return;
+    }
+
     // Get number of clients in the room before joining
     const clientsInRoom = io.sockets.adapter.rooms.get(roomName);
     const numClients = clientsInRoom ? clientsInRoom.size : 0;
@@ -154,6 +160,13 @@ io.on('connection', (socket) => {
 
   socket.on('leave-call', (data) => {
     const roomName = `call_${data.appointmentId}`;
+
+    // Only leave if actually in the room
+    if (!socket.rooms.has(roomName)) {
+      console.log(`⚠️ User ${socket.userId} tried to leave call ${data.appointmentId} but wasn't in it`);
+      return;
+    }
+
     socket.leave(roomName);
     socket.currentCallRooms.delete(roomName);
     console.log(`User ${socket.userId} left call ${data.appointmentId}`);
