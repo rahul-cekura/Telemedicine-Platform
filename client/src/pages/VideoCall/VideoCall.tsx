@@ -93,18 +93,15 @@ const VideoCall: React.FC = () => {
     const initializeMedia = async () => {
       try {
         console.log('🎥 Requesting media devices...');
+        const startTime = performance.now();
+
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            facingMode: 'user'
-          },
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
-          },
+          video: true,  // Simplified - use default camera settings
+          audio: true   // Simplified - use default audio settings
         });
+
+        const elapsed = performance.now() - startTime;
+        console.log(`✅ Media devices ready in ${elapsed.toFixed(0)}ms`);
 
         localStreamRef.current = stream;
 
@@ -112,7 +109,6 @@ const VideoCall: React.FC = () => {
           localVideoRef.current.srcObject = stream;
         }
 
-        console.log('✅ Media devices initialized');
         setIsConnecting(false);
         setIsMediaReady(true);
       } catch (err: any) {
