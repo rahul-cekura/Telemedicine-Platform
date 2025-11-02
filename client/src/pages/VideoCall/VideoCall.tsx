@@ -94,8 +94,16 @@ const VideoCall: React.FC = () => {
       try {
         console.log('🎥 Requesting media devices...');
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 1280, height: 720 },
-          audio: true,
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            facingMode: 'user'
+          },
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          },
         });
 
         localStreamRef.current = stream;
@@ -140,8 +148,8 @@ const VideoCall: React.FC = () => {
       isMediaReady: isMediaReady
     });
 
-    if (!socket || !localStreamRef.current || !appointmentId) {
-      console.log('⏳ Waiting for socket, stream, or appointmentId...');
+    if (!socket || !appointmentId) {
+      console.log('⏳ Waiting for socket or appointmentId...');
       return;
     }
 
@@ -153,6 +161,12 @@ const VideoCall: React.FC = () => {
     // Prevent duplicate joins
     if (hasJoinedCall.current) {
       console.log('⚠️ Already joined this call, skipping setup');
+      return;
+    }
+
+    // Wait for media before creating peer connection
+    if (!localStreamRef.current) {
+      console.log('⏳ Waiting for media stream before creating peer connection...');
       return;
     }
 
