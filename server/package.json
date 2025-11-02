@@ -9,7 +9,8 @@
     "test": "jest",
     "db:migrate": "knex migrate:latest",
     "db:seed": "knex seed:run",
-    "db:rollback": "knex migrate:rollback"
+    "db:rollback": "knex migrate:rollback",
+    "create-admin": "node scripts/create-admin.js"
   },
   "dependencies": {
     "express": "^4.18.2",

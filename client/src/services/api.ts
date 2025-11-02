@@ -18,6 +18,27 @@ class ApiService {
     this.setupInterceptors();
   }
 
+  // Generic HTTP methods
+  async get(url: string, config?: any) {
+    return this.api.get(url, config);
+  }
+
+  async post(url: string, data?: any, config?: any) {
+    return this.api.post(url, data, config);
+  }
+
+  async put(url: string, data?: any, config?: any) {
+    return this.api.put(url, data, config);
+  }
+
+  async delete(url: string, config?: any) {
+    return this.api.delete(url, config);
+  }
+
+  async patch(url: string, data?: any, config?: any) {
+    return this.api.patch(url, data, config);
+  }
+
   private setupInterceptors() {
     // Request interceptor to add auth token
     this.api.interceptors.request.use(
@@ -41,7 +62,7 @@ class ApiService {
       (error) => {
         if (error.response) {
           const { status, data } = error.response;
-          
+
           switch (status) {
             case 401:
               // Unauthorized - clear token and redirect to login
@@ -335,4 +356,5 @@ class ApiService {
   }
 }
 
-export default new ApiService();
+const apiService = new ApiService();
+export default apiService;

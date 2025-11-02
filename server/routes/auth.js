@@ -9,6 +9,104 @@ const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/emai
 
 const router = express.Router();
 
+// @route   POST /api/auth/register-admin
+// @desc    Register the first super admin user
+// @access  Public (but requires secret key)
+router.post('/register-admin', [
+  body('email').isEmail().normalizeEmail(),
+  body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
+  body('firstName').trim().isLength({ min: 1 }).withMessage('First name is required'),
+  body('lastName').trim().isLength({ min: 1 }).withMessage('Last name is required'),
+  body('phone').isMobilePhone().withMessage('Valid phone number is required'),
+  body('secretKey').notEmpty().withMessage('Secret key is required')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    const { email, password, firstName, lastName, phone, secretKey } = req.body;
+
+    // Verify secret key
+    if (secretKey !== process.env.SUPER_ADMIN_SECRET_KEY) {
+      return res.status(403).json({
+        success: false,
+        message: 'Invalid secret key'
+      });
+    }
+
+    // Check if any admin already exists
+    const existingAdmin = await db('users').where('role', 'admin').first();
+    if (existingAdmin) {
+      return res.status(400).json({
+        success: false,
+        message: 'An admin account already exists. Please contact the existing administrator.'
+      });
+    }
+
+    // Check if user with this email exists
+    const existingUser = await db('users').where('email', email).first();
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'User already exists with this email'
+      });
+    }
+
+    // Hash password
+    const saltRounds = 12;
+    const passwordHash = await bcrypt.hash(password, saltRounds);
+
+    // Create admin user
+    const [user] = await db('users')
+      .insert({
+        email,
+        password_hash: passwordHash,
+        first_name: firstName,
+        last_name: lastName,
+        phone,
+        role: 'admin',
+        email_verified: true, // Auto-verify admin
+        status: 'active'
+      })
+      .returning(['id', 'email', 'first_name', 'last_name', 'role', 'email_verified']);
+
+    // Log audit event
+    await logAuditEvent({
+      userId: user.id,
+      action: 'register',
+      resourceType: 'user',
+      resourceId: user.id,
+      details: { role: 'admin', method: 'super_admin_registration' }
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Super admin account created successfully',
+      data: {
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.first_name,
+          lastName: user.last_name,
+          role: user.role
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Admin registration error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create admin account'
+    });
+  }
+});
+
 // Validation middleware
 const registerValidation = [
   body('email').isEmail().normalizeEmail(),

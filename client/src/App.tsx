@@ -6,6 +6,7 @@ import { useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout/Layout';
 import Login from './pages/Auth/Login';
 import Register from './pages/Auth/Register';
+import AdminRegister from './pages/Auth/AdminRegister';
 import ForgotPassword from './pages/Auth/ForgotPassword';
 import ResetPassword from './pages/Auth/ResetPassword';
 import VerifyEmail from './pages/Auth/VerifyEmail';
@@ -93,6 +94,14 @@ const App: React.FC = () => {
         element={
           <PublicRoute>
             <Register />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/admin-register"
+        element={
+          <PublicRoute>
+            <AdminRegister />
           </PublicRoute>
         }
       />

@@ -6,7 +6,26 @@ const { logAuditEvent, getAuditLogs, getUserAuditLogs, getResourceAuditLogs } = 
 
 const router = express.Router();
 
-// All admin routes require admin role
+// @route   GET /api/admin/check-exists
+// @desc    Check if any admin user exists
+// @access  Public (needed for registration page)
+router.get('/check-exists', async (req, res) => {
+  try {
+    const adminUser = await db('users').where('role', 'admin').first();
+    res.json({
+      success: true,
+      exists: !!adminUser
+    });
+  } catch (error) {
+    console.error('Check admin exists error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to check admin status'
+    });
+  }
+});
+
+// All other admin routes require admin role
 router.use(requireRole(['admin']));
 
 // @route   GET /api/admin/dashboard
@@ -14,20 +33,36 @@ router.use(requireRole(['admin']));
 // @access  Private (Admin only)
 router.get('/dashboard', async (req, res) => {
   try {
-    // Get user statistics
-    const userStats = await db('users')
+    // Get user statistics by role
+    const usersByRole = await db('users')
       .select('role')
       .count('* as count')
       .groupBy('role');
 
+    const roleCount = usersByRole.reduce((acc, stat) => {
+      acc[stat.role] = parseInt(stat.count);
+      return acc;
+    }, {});
+
     const totalUsers = await db('users').count('* as count').first();
     const activeUsers = await db('users').where('status', 'active').count('* as count').first();
 
-    // Get appointment statistics
-    const appointmentStats = await db('appointments')
+    // Get users created this month
+    const newThisMonth = await db('users')
+      .whereRaw('created_at >= DATE_TRUNC(\'month\', CURRENT_DATE)')
+      .count('* as count')
+      .first();
+
+    // Get appointment statistics by status
+    const appointmentsByStatus = await db('appointments')
       .select('status')
       .count('* as count')
       .groupBy('status');
+
+    const statusCount = appointmentsByStatus.reduce((acc, stat) => {
+      acc[stat.status] = parseInt(stat.count);
+      return acc;
+    }, {});
 
     const totalAppointments = await db('appointments').count('* as count').first();
     const todayAppointments = await db('appointments')
@@ -35,84 +70,52 @@ router.get('/dashboard', async (req, res) => {
       .count('* as count')
       .first();
 
-    // Get revenue statistics
-    const revenueStats = await db('billing')
-      .select('status')
-      .sum('total_amount as total')
-      .groupBy('status');
-
-    const totalRevenue = await db('billing')
-      .where('status', 'paid')
-      .sum('total_amount as total')
-      .first();
-
-    const monthlyRevenue = await db('billing')
-      .where('status', 'paid')
+    // Get health records stats
+    const totalHealthRecords = await db('health_records').count('* as count').first();
+    const healthRecordsThisMonth = await db('health_records')
       .whereRaw('created_at >= DATE_TRUNC(\'month\', CURRENT_DATE)')
-      .sum('total_amount as total')
+      .count('* as count')
       .first();
 
-    // Get recent activities
-    const recentAppointments = await db('appointments')
-      .select(
-        'appointments.*',
-        'p_users.first_name as patient_first_name',
-        'p_users.last_name as patient_last_name',
-        'd_users.first_name as doctor_first_name',
-        'd_users.last_name as doctor_last_name'
-      )
-      .join('patients', 'appointments.patient_id', 'patients.id')
-      .join('users as p_users', 'patients.user_id', 'p_users.id')
-      .join('doctors', 'appointments.doctor_id', 'doctors.id')
-      .join('users as d_users', 'doctors.user_id', 'd_users.id')
-      .orderBy('appointments.created_at', 'desc')
-      .limit(10);
-
-    // Get system health
-    const systemHealth = {
-      database: await db.raw('SELECT 1').then(() => 'healthy').catch(() => 'unhealthy'),
-      uptime: process.uptime(),
-      memoryUsage: process.memoryUsage(),
-      timestamp: new Date()
-    };
+    // Get prescription stats
+    const totalPrescriptions = await db('prescriptions').count('* as count').first();
+    const activePrescriptions = await db('prescriptions')
+      .where('status', 'active')
+      .count('* as count')
+      .first();
+    const prescriptionsThisMonth = await db('prescriptions')
+      .whereRaw('prescribed_date >= DATE_TRUNC(\'month\', CURRENT_DATE)')
+      .count('* as count')
+      .first();
 
     res.json({
       success: true,
       data: {
         userStats: {
           total: parseInt(totalUsers.count),
-          active: parseInt(activeUsers.count),
-          byRole: userStats.reduce((acc, stat) => {
-            acc[stat.role] = parseInt(stat.count);
-            return acc;
-          }, {})
+          patients: roleCount.patient || 0,
+          doctors: roleCount.doctor || 0,
+          admins: roleCount.admin || 0,
+          activeUsers: parseInt(activeUsers.count),
+          newThisMonth: parseInt(newThisMonth.count)
         },
         appointmentStats: {
           total: parseInt(totalAppointments.count),
-          today: parseInt(todayAppointments.count),
-          byStatus: appointmentStats.reduce((acc, stat) => {
-            acc[stat.status] = parseInt(stat.count);
-            return acc;
-          }, {})
+          scheduled: statusCount.scheduled || 0,
+          completed: statusCount.completed || 0,
+          cancelled: statusCount.cancelled || 0,
+          inProgress: statusCount.in_progress || 0,
+          todayCount: parseInt(todayAppointments.count)
         },
-        revenueStats: {
-          total: parseFloat(totalRevenue.total || 0),
-          monthly: parseFloat(monthlyRevenue.total || 0),
-          byStatus: revenueStats.reduce((acc, stat) => {
-            acc[stat.status] = parseFloat(stat.total || 0);
-            return acc;
-          }, {})
+        healthRecordsStats: {
+          total: parseInt(totalHealthRecords.count),
+          thisMonth: parseInt(healthRecordsThisMonth.count)
         },
-        recentAppointments: recentAppointments.map(appointment => ({
-          id: appointment.id,
-          scheduledAt: appointment.scheduled_at,
-          status: appointment.status,
-          type: appointment.type,
-          patient: `${appointment.patient_first_name} ${appointment.patient_last_name}`,
-          doctor: `${appointment.doctor_first_name} ${appointment.doctor_last_name}`,
-          createdAt: appointment.created_at
-        })),
-        systemHealth
+        prescriptionStats: {
+          total: parseInt(totalPrescriptions.count),
+          active: parseInt(activePrescriptions.count),
+          thisMonth: parseInt(prescriptionsThisMonth.count)
+        }
       }
     });
 
