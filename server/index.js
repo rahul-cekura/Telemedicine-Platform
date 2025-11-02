@@ -112,10 +112,13 @@ io.use((socket, next) => {
 
 io.on('connection', (socket) => {
   console.log(`User ${socket.userId} connected`);
-  
+
   // Join user to their personal room
   socket.join(`user_${socket.userId}`);
-  
+
+  // Track which call rooms this socket is in
+  socket.currentCallRooms = new Set();
+
   // Handle video call events
   socket.on('join-call', (data) => {
     const roomName = `call_${data.appointmentId}`;
@@ -126,8 +129,9 @@ io.on('connection', (socket) => {
 
     console.log(`User ${socket.userId} joining call ${data.appointmentId}. Room has ${numClients} users.`);
 
-    // Join the room
+    // Join the room and track it
     socket.join(roomName);
+    socket.currentCallRooms.add(roomName);
 
     // Determine if this user is the initiator (first to join)
     const isInitiator = numClients === 0;
@@ -151,6 +155,7 @@ io.on('connection', (socket) => {
   socket.on('leave-call', (data) => {
     const roomName = `call_${data.appointmentId}`;
     socket.leave(roomName);
+    socket.currentCallRooms.delete(roomName);
     console.log(`User ${socket.userId} left call ${data.appointmentId}`);
 
     // Notify others in the room
@@ -186,9 +191,38 @@ io.on('connection', (socket) => {
       from: socket.userId
     });
   });
-  
-  socket.on('disconnect', () => {
-    console.log(`User ${socket.userId} disconnected`);
+
+  // Handle chat messages during call
+  socket.on('call-message', (data) => {
+    const roomName = `call_${data.appointmentId}`;
+    console.log(`💬 Forwarding message from user ${socket.userId} in call ${data.appointmentId}`);
+    socket.to(roomName).emit('call-message', {
+      message: data.message,
+      senderId: data.senderId,
+      senderName: data.senderName,
+      timestamp: data.timestamp
+    });
+  });
+
+  socket.on('disconnect', (reason) => {
+    console.log(`User ${socket.userId} disconnected. Reason: ${reason}`);
+
+    // Notify all call rooms this user was in
+    if (socket.currentCallRooms && socket.currentCallRooms.size > 0) {
+      socket.currentCallRooms.forEach(roomName => {
+        console.log(`Notifying room ${roomName} that user ${socket.userId} disconnected`);
+        socket.to(roomName).emit('user-left', {
+          userId: socket.userId
+        });
+      });
+      socket.currentCallRooms.clear();
+    }
+  });
+
+  socket.on('disconnecting', (reason) => {
+    console.log(`User ${socket.userId} disconnecting. Reason: ${reason}`);
+    // This fires before disconnect, giving us access to socket.rooms
+    // We already track rooms in currentCallRooms, so this is just for logging
   });
 });
 

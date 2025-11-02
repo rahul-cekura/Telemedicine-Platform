@@ -10,6 +10,12 @@ import {
   Alert,
   Tooltip,
   CircularProgress,
+  TextField,
+  Badge,
+  Drawer,
+  List,
+  ListItem,
+  Divider,
 } from '@mui/material';
 import {
   Videocam,
@@ -19,6 +25,8 @@ import {
   CallEnd,
   ScreenShare,
   StopScreenShare,
+  Chat as ChatIcon,
+  Send,
 } from '@mui/icons-material';
 import { useSocket } from '../../contexts/SocketContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -34,7 +42,9 @@ const VideoCall: React.FC = () => {
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
+  const screenStreamRef = useRef<MediaStream | null>(null);
   const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
   // State
   const [isVideoOn, setIsVideoOn] = useState(true);
@@ -44,14 +54,34 @@ const VideoCall: React.FC = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string>('');
 
-  // ICE servers for WebRTC (STUN servers for NAT traversal)
+  // Chat state
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [messages, setMessages] = useState<Array<{id: string, text: string, sender: string, timestamp: Date}>>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // ICE servers for WebRTC (STUN/TURN servers for NAT traversal)
   const iceServers = {
     iceServers: [
+      // Google's public STUN servers
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' },
-      { urls: 'stun:stun3.l.google.com:19302' },
-      { urls: 'stun:stun4.l.google.com:19302' },
+      // Free TURN server for fallback (helps with restrictive NATs)
+      {
+        urls: 'turn:openrelay.metered.ca:80',
+        username: 'openrelayproject',
+        credential: 'openrelayproject',
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443',
+        username: 'openrelayproject',
+        credential: 'openrelayproject',
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+        username: 'openrelayproject',
+        credential: 'openrelayproject',
+      },
     ],
     iceCandidatePoolSize: 10,
   };
@@ -96,8 +126,21 @@ const VideoCall: React.FC = () => {
 
   // Setup WebRTC connection
   useEffect(() => {
+    console.log('🔍 WebRTC useEffect triggered:', {
+      hasSocket: !!socket,
+      socketConnected: socket?.connected,
+      hasStream: !!localStreamRef.current,
+      appointmentId: appointmentId,
+      userId: user?.id
+    });
+
     if (!socket || !localStreamRef.current || !appointmentId) {
       console.log('⏳ Waiting for socket, stream, or appointmentId...');
+      return;
+    }
+
+    if (!socket.connected) {
+      console.log('⏳ Socket exists but not connected yet, waiting...');
       return;
     }
 
@@ -136,18 +179,46 @@ const VideoCall: React.FC = () => {
         }
       };
 
-      // Handle connection state
+      // Handle connection state changes
       pc.oniceconnectionstatechange = () => {
         console.log('🔄 ICE connection state:', pc.iceConnectionState);
+
         if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
           setIsConnected(true);
-        } else if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
+          setError('');
+          console.log('✅ Connection established successfully');
+        } else if (pc.iceConnectionState === 'failed') {
+          console.error('❌ ICE connection failed');
           setIsConnected(false);
+          setError('Connection failed. Please refresh and try again.');
+
+          // Attempt to restart ICE
+          pc.restartIce();
+        } else if (pc.iceConnectionState === 'disconnected') {
+          console.warn('⚠️ ICE connection disconnected, waiting for reconnection...');
+          setIsConnected(false);
+        } else if (pc.iceConnectionState === 'checking') {
+          console.log('🔍 Checking connection...');
         }
       };
 
       pc.onconnectionstatechange = () => {
         console.log('🔄 Connection state:', pc.connectionState);
+
+        if (pc.connectionState === 'connected') {
+          console.log('✅ Peer connection established');
+          setError('');
+        } else if (pc.connectionState === 'failed') {
+          console.error('❌ Peer connection failed');
+          setError('Connection failed. Please check your network and try again.');
+        } else if (pc.connectionState === 'disconnected') {
+          console.warn('⚠️ Peer disconnected');
+        }
+      };
+
+      // Handle negotiation needed
+      pc.onnegotiationneeded = async () => {
+        console.log('🔄 Negotiation needed');
       };
 
       return pc;
@@ -159,15 +230,27 @@ const VideoCall: React.FC = () => {
     socket.on('call-offer', async (data: { offer: RTCSessionDescriptionInit, from: string }) => {
       console.log('📨 Received offer from:', data.from);
       try {
+        // Check if we already have a remote description
+        if (pc.signalingState !== 'stable') {
+          console.warn('⚠️ Signaling state is not stable:', pc.signalingState);
+          return;
+        }
+
         await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
         console.log('✅ Set remote description (offer)');
 
-        // Add any pending ICE candidates
-        for (const candidate of pendingCandidatesRef.current) {
-          await pc.addIceCandidate(new RTCIceCandidate(candidate));
-          console.log('🧊 Added pending ICE candidate');
+        // Add any pending ICE candidates now that we have remote description
+        if (pendingCandidatesRef.current.length > 0) {
+          console.log(`🧊 Adding ${pendingCandidatesRef.current.length} pending ICE candidates`);
+          for (const candidate of pendingCandidatesRef.current) {
+            try {
+              await pc.addIceCandidate(new RTCIceCandidate(candidate));
+            } catch (err) {
+              console.error('❌ Error adding pending ICE candidate:', err);
+            }
+          }
+          pendingCandidatesRef.current = [];
         }
-        pendingCandidatesRef.current = [];
 
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
@@ -175,7 +258,7 @@ const VideoCall: React.FC = () => {
         socket.emit('call-answer', { answer, appointmentId });
       } catch (err) {
         console.error('❌ Error handling offer:', err);
-        setError('Failed to establish connection');
+        setError('Failed to establish connection. Please try again.');
       }
     });
 
@@ -183,33 +266,61 @@ const VideoCall: React.FC = () => {
     socket.on('call-answer', async (data: { answer: RTCSessionDescriptionInit }) => {
       console.log('📨 Received answer');
       try {
+        // Only set remote description if we're in the right state
+        if (pc.signalingState !== 'have-local-offer') {
+          console.warn('⚠️ Cannot set answer, signaling state is:', pc.signalingState);
+          return;
+        }
+
         await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
         console.log('✅ Set remote description (answer)');
 
-        // Add any pending ICE candidates
-        for (const candidate of pendingCandidatesRef.current) {
-          await pc.addIceCandidate(new RTCIceCandidate(candidate));
-          console.log('🧊 Added pending ICE candidate');
+        // Add any pending ICE candidates now that we have remote description
+        if (pendingCandidatesRef.current.length > 0) {
+          console.log(`🧊 Adding ${pendingCandidatesRef.current.length} pending ICE candidates`);
+          for (const candidate of pendingCandidatesRef.current) {
+            try {
+              await pc.addIceCandidate(new RTCIceCandidate(candidate));
+            } catch (err) {
+              console.error('❌ Error adding pending ICE candidate:', err);
+            }
+          }
+          pendingCandidatesRef.current = [];
         }
-        pendingCandidatesRef.current = [];
       } catch (err) {
         console.error('❌ Error handling answer:', err);
+        setError('Failed to complete connection. Please try again.');
       }
     });
 
     // Handle ICE candidates
     socket.on('ice-candidate', async (data: { candidate: RTCIceCandidateInit }) => {
-      console.log('📨 Received ICE candidate');
       try {
-        if (pc.remoteDescription) {
-          await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-          console.log('✅ Added ICE candidate');
+        if (!data.candidate) {
+          console.log('📨 Received end-of-candidates signal');
+          return;
+        }
+
+        if (pc.remoteDescription && pc.remoteDescription.type) {
+          // We have a remote description, add candidate immediately
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+            console.log('✅ Added ICE candidate');
+          } catch (err: any) {
+            // Ignore errors for candidates that don't match
+            if (err.toString().includes('OperationError')) {
+              console.log('⚠️ ICE candidate rejected (this is sometimes normal)');
+            } else {
+              console.error('❌ Error adding ICE candidate:', err);
+            }
+          }
         } else {
+          // No remote description yet, queue the candidate
           console.log('⏳ Queuing ICE candidate (no remote description yet)');
           pendingCandidatesRef.current.push(data.candidate);
         }
       } catch (err) {
-        console.error('❌ Error adding ICE candidate:', err);
+        console.error('❌ Error processing ICE candidate:', err);
       }
     });
 
@@ -222,14 +333,28 @@ const VideoCall: React.FC = () => {
     // Handle user joined (we're already in room, create offer)
     socket.on('user-joined', async (data: { userId: string, userRole: string }) => {
       console.log('👤 Other user joined:', data.userId);
+
+      // Small delay to ensure both peers are ready
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       console.log('📤 Creating and sending offer');
       try {
-        const offer = await pc.createOffer();
+        // Make sure peer connection is in stable state
+        if (pc.signalingState !== 'stable') {
+          console.warn('⚠️ Peer connection not stable, waiting...');
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+
+        const offer = await pc.createOffer({
+          offerToReceiveAudio: true,
+          offerToReceiveVideo: true,
+        });
         await pc.setLocalDescription(offer);
         socket.emit('call-offer', { offer, appointmentId });
         console.log('✅ Offer sent');
       } catch (err) {
         console.error('❌ Error creating offer:', err);
+        setError('Failed to initiate connection. Please try again.');
       }
     });
 
@@ -239,6 +364,23 @@ const VideoCall: React.FC = () => {
       setIsConnected(false);
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = null;
+      }
+    });
+
+    // Handle chat messages
+    socket.on('call-message', (data: { message: string, senderId: string, senderName: string, timestamp: string }) => {
+      console.log('💬 Received message:', data);
+      const newMsg = {
+        id: Date.now().toString(),
+        text: data.message,
+        sender: data.senderName,
+        timestamp: new Date(data.timestamp)
+      };
+      setMessages(prev => [...prev, newMsg]);
+
+      // Increment unread count if chat is closed
+      if (!isChatOpen) {
+        setUnreadCount(prev => prev + 1);
       }
     });
 
@@ -254,8 +396,9 @@ const VideoCall: React.FC = () => {
       socket.off('room-joined');
       socket.off('user-joined');
       socket.off('user-left');
+      socket.off('call-message');
     };
-  }, [socket, appointmentId, user, iceServers]);
+  }, [socket, appointmentId, user?.id, isChatOpen]);
 
   // Toggle video
   const toggleVideo = () => {
@@ -285,43 +428,68 @@ const VideoCall: React.FC = () => {
 
     try {
       if (!isScreenSharing) {
+        // Start screen sharing
         const screenStream = await navigator.mediaDevices.getDisplayMedia({
           video: true,
-        });
+          audio: false
+        } as any);
 
-        const videoTrack = screenStream.getVideoTracks()[0];
+        screenStreamRef.current = screenStream;
+        const screenVideoTrack = screenStream.getVideoTracks()[0];
+
+        // Replace the video track being sent to peer
         const sender = peerConnectionRef.current
           .getSenders()
           .find(s => s.track?.kind === 'video');
 
         if (sender) {
-          sender.replaceTrack(videoTrack);
+          await sender.replaceTrack(screenVideoTrack);
         }
 
-        videoTrack.onended = () => {
-          const cameraTrack = localStreamRef.current?.getVideoTracks()[0];
-          if (cameraTrack && sender) {
-            sender.replaceTrack(cameraTrack);
-          }
-          setIsScreenSharing(false);
+        // Update local video preview to show screen share
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = screenStream;
+        }
+
+        // Handle when user stops sharing via browser UI
+        screenVideoTrack.onended = async () => {
+          await stopScreenShare();
         };
 
         setIsScreenSharing(true);
       } else {
-        const cameraTrack = localStreamRef.current?.getVideoTracks()[0];
-        const sender = peerConnectionRef.current
-          .getSenders()
-          .find(s => s.track?.kind === 'video');
-
-        if (cameraTrack && sender) {
-          sender.replaceTrack(cameraTrack);
-        }
-        setIsScreenSharing(false);
+        await stopScreenShare();
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error toggling screen share:', err);
-      setError('Failed to share screen');
+      if (err.name !== 'NotAllowedError') {
+        setError('Failed to share screen');
+      }
     }
+  };
+
+  // Stop screen sharing helper
+  const stopScreenShare = async () => {
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach(track => track.stop());
+      screenStreamRef.current = null;
+    }
+
+    const cameraTrack = localStreamRef.current?.getVideoTracks()[0];
+    const sender = peerConnectionRef.current
+      ?.getSenders()
+      .find(s => s.track?.kind === 'video');
+
+    if (cameraTrack && sender) {
+      await sender.replaceTrack(cameraTrack);
+    }
+
+    // Restore local video preview to camera
+    if (localVideoRef.current && localStreamRef.current) {
+      localVideoRef.current.srcObject = localStreamRef.current;
+    }
+
+    setIsScreenSharing(false);
   };
 
   // End call
@@ -334,12 +502,63 @@ const VideoCall: React.FC = () => {
       localStreamRef.current.getTracks().forEach(track => track.stop());
     }
 
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach(track => track.stop());
+    }
+
     if (peerConnectionRef.current) {
       peerConnectionRef.current.close();
     }
 
     navigate('/appointments');
   };
+
+  // Chat functions
+  const toggleChat = () => {
+    setIsChatOpen(!isChatOpen);
+    if (!isChatOpen) {
+      setUnreadCount(0);
+    }
+  };
+
+  const sendMessage = () => {
+    if (!newMessage.trim() || !socket || !appointmentId) return;
+
+    const messageData = {
+      appointmentId,
+      message: newMessage,
+      senderId: user?.id,
+      senderName: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'You',
+      timestamp: new Date().toISOString()
+    };
+
+    // Add to local messages
+    setMessages(prev => [...prev, {
+      id: Date.now().toString(),
+      text: newMessage,
+      sender: 'You',
+      timestamp: new Date()
+    }]);
+
+    // Send to other participants
+    socket.emit('call-message', messageData);
+
+    setNewMessage('');
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
+  // Auto-scroll chat to bottom
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
 
   if (isConnecting) {
     return (
@@ -490,6 +709,23 @@ const VideoCall: React.FC = () => {
           </IconButton>
         </Tooltip>
 
+        <Tooltip title="Chat">
+          <IconButton
+            onClick={toggleChat}
+            sx={{
+              bgcolor: 'primary.main',
+              color: 'white',
+              '&:hover': {
+                bgcolor: 'primary.dark',
+              },
+            }}
+          >
+            <Badge badgeContent={unreadCount} color="error">
+              <ChatIcon />
+            </Badge>
+          </IconButton>
+        </Tooltip>
+
         <Tooltip title="End call">
           <IconButton
             onClick={endCall}
@@ -505,6 +741,80 @@ const VideoCall: React.FC = () => {
           </IconButton>
         </Tooltip>
       </Box>
+
+      {/* Chat Drawer */}
+      <Drawer
+        anchor="right"
+        open={isChatOpen}
+        onClose={toggleChat}
+        sx={{
+          '& .MuiDrawer-paper': {
+            width: { xs: '100%', sm: 400 },
+            maxWidth: '100%',
+          },
+        }}
+      >
+        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+          <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+            <Typography variant="h6">Chat</Typography>
+          </Box>
+
+          <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
+            <List>
+              {messages.map((msg) => (
+                <ListItem
+                  key={msg.id}
+                  sx={{
+                    flexDirection: 'column',
+                    alignItems: msg.sender === 'You' ? 'flex-end' : 'flex-start',
+                    mb: 1,
+                  }}
+                >
+                  <Paper
+                    sx={{
+                      p: 1.5,
+                      maxWidth: '80%',
+                      bgcolor: msg.sender === 'You' ? 'primary.main' : 'grey.200',
+                      color: msg.sender === 'You' ? 'white' : 'text.primary',
+                    }}
+                  >
+                    <Typography variant="caption" sx={{ display: 'block', mb: 0.5, opacity: 0.8 }}>
+                      {msg.sender}
+                    </Typography>
+                    <Typography variant="body2">{msg.text}</Typography>
+                    <Typography variant="caption" sx={{ display: 'block', mt: 0.5, opacity: 0.7 }}>
+                      {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </Typography>
+                  </Paper>
+                </ListItem>
+              ))}
+              <div ref={chatEndRef} />
+            </List>
+          </Box>
+
+          <Divider />
+
+          <Box sx={{ p: 2, display: 'flex', gap: 1 }}>
+            <TextField
+              fullWidth
+              size="small"
+              placeholder="Type a message..."
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onKeyDown={handleKeyDown}
+              multiline
+              maxRows={3}
+            />
+            <IconButton
+              color="primary"
+              onClick={sendMessage}
+              disabled={!newMessage.trim()}
+            >
+              <Send />
+            </IconButton>
+          </Box>
+        </Box>
+      </Drawer>
     </Container>
   );
 };
