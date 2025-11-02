@@ -99,11 +99,7 @@ const App: React.FC = () => {
       />
       <Route
         path="/admin-register"
-        element={
-          <PublicRoute>
-            <AdminRegister />
-          </PublicRoute>
-        }
+        element={<AdminRegister />}
       />
       <Route
         path="/forgot-password"
