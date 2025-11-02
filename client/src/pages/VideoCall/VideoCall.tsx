@@ -54,6 +54,7 @@ const VideoCall: React.FC = () => {
   const [isConnecting, setIsConnecting] = useState(true);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string>('');
+  const [isMediaReady, setIsMediaReady] = useState(false);
 
   // Chat state
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -105,6 +106,7 @@ const VideoCall: React.FC = () => {
 
         console.log('✅ Media devices initialized');
         setIsConnecting(false);
+        setIsMediaReady(true);
       } catch (err: any) {
         console.error('❌ Error accessing media devices:', err);
         setError('Failed to access camera/microphone. Please check permissions.');
@@ -425,7 +427,7 @@ const VideoCall: React.FC = () => {
       // Reset join flag for potential re-mount
       hasJoinedCall.current = false;
     };
-  }, [socket, appointmentId, user?.id]);
+  }, [socket, appointmentId, user?.id, isMediaReady]);
 
   // Toggle video
   const toggleVideo = () => {
