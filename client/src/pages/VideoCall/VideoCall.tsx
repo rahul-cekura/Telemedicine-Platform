@@ -136,7 +136,8 @@ const VideoCall: React.FC = () => {
       hasStream: !!localStreamRef.current,
       appointmentId: appointmentId,
       userId: user?.id,
-      hasJoined: hasJoinedCall.current
+      hasJoined: hasJoinedCall.current,
+      isMediaReady: isMediaReady
     });
 
     if (!socket || !localStreamRef.current || !appointmentId) {
