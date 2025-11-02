@@ -12,9 +12,16 @@ const router = express.Router();
 router.get('/check-exists', async (req, res) => {
   try {
     const adminUser = await db('users').where('role', 'admin').first();
+    console.log('Admin check result:', adminUser ? `Found: ${adminUser.email}` : 'No admin found');
     res.json({
       success: true,
-      exists: !!adminUser
+      exists: !!adminUser,
+      // Debug info (remove in production)
+      debug: adminUser ? {
+        email: adminUser.email,
+        firstName: adminUser.first_name,
+        createdAt: adminUser.created_at
+      } : null
     });
   } catch (error) {
     console.error('Check admin exists error:', error);

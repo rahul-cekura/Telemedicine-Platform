@@ -40,15 +40,6 @@ router.post('/register-admin', [
       });
     }
 
-    // Check if any admin already exists
-    const existingAdmin = await db('users').where('role', 'admin').first();
-    if (existingAdmin) {
-      return res.status(400).json({
-        success: false,
-        message: 'An admin account already exists. Please contact the existing administrator.'
-      });
-    }
-
     // Check if user with this email exists
     const existingUser = await db('users').where('email', email).first();
     if (existingUser) {

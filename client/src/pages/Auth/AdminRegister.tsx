@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -34,29 +34,7 @@ const AdminRegister: React.FC = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [checkingAdmin, setCheckingAdmin] = useState(true);
-  const [adminExists, setAdminExists] = useState(false);
   const navigate = useNavigate();
-
-  useEffect(() => {
-    checkAdminExists();
-  }, []);
-
-  const checkAdminExists = async () => {
-    try {
-      const response = await api.get('/admin/check-exists');
-      setAdminExists(response.data.exists);
-      if (response.data.exists) {
-        setError('An admin account already exists. Please login or contact existing admin.');
-      }
-    } catch (err) {
-      console.error('Failed to check admin:', err);
-      // If endpoint doesn't exist, assume no admin
-      setAdminExists(false);
-    } finally {
-      setCheckingAdmin(false);
-    }
-  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -132,21 +110,6 @@ const AdminRegister: React.FC = () => {
     }
   };
 
-  if (checkingAdmin) {
-    return (
-      <Container maxWidth="sm">
-        <Box
-          display="flex"
-          justifyContent="center"
-          alignItems="center"
-          minHeight="100vh"
-        >
-          <CircularProgress />
-        </Box>
-      </Container>
-    );
-  }
-
   return (
     <Container maxWidth="sm">
       <Box
@@ -160,23 +123,14 @@ const AdminRegister: React.FC = () => {
           <Box display="flex" flexDirection="column" alignItems="center" mb={3}>
             <AdminIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
             <Typography variant="h4" component="h1" gutterBottom>
-              Super Admin Registration
+              Admin Registration
             </Typography>
             <Typography variant="body2" color="text.secondary" textAlign="center">
-              Create the first administrator account for your telemedicine platform
+              Create an administrator account for your telemedicine platform
             </Typography>
           </Box>
 
-          {adminExists && (
-            <Alert severity="warning" sx={{ mb: 3 }}>
-              An admin account already exists. This page is only for initial setup.
-              <br />
-              Please <a href="/login">login here</a> or contact the existing administrator.
-            </Alert>
-          )}
-
-          {!adminExists && (
-            <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit}>
               {error && (
                 <Alert severity="error" sx={{ mb: 2 }}>
                   {error}
@@ -294,10 +248,10 @@ const AdminRegister: React.FC = () => {
                 fullWidth
                 variant="contained"
                 size="large"
-                disabled={loading || adminExists}
+                disabled={loading}
                 sx={{ mt: 3, mb: 2 }}
               >
-                {loading ? <CircularProgress size={24} /> : 'Create Super Admin Account'}
+                {loading ? <CircularProgress size={24} /> : 'Create Admin Account'}
               </Button>
 
               <Box textAlign="center">
@@ -313,7 +267,6 @@ const AdminRegister: React.FC = () => {
                 </Typography>
               </Box>
             </form>
-          )}
         </Paper>
       </Box>
     </Container>
