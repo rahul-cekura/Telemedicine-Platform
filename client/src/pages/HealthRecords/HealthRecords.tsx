@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Container,
   Typography,
@@ -93,17 +93,7 @@ const HealthRecords: React.FC = () => {
     recordDate: new Date().toISOString().split('T')[0],
   });
 
-  useEffect(() => {
-    fetchRecords();
-  }, [recordTypeFilter, page]);
-
-  useEffect(() => {
-    if (user?.role === 'doctor' && (createOpen || editOpen)) {
-      fetchPatients();
-    }
-  }, [createOpen, editOpen, user]);
-
-  const fetchRecords = async () => {
+  const fetchRecords = useCallback(async () => {
     try {
       setLoading(true);
       const params: any = { page, limit: 10 };
@@ -120,7 +110,18 @@ const HealthRecords: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [recordTypeFilter, page]);
+
+  useEffect(() => {
+    fetchRecords();
+  }, [fetchRecords]);
+
+  useEffect(() => {
+    if (user?.role === 'doctor' && (createOpen || editOpen)) {
+      fetchPatients();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createOpen, editOpen, user]);
 
   const fetchPatients = async () => {
     try {

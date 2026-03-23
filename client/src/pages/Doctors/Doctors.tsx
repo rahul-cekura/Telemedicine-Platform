@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -71,11 +71,7 @@ const Doctors: React.FC = () => {
   });
   const [bookingLoading, setBookingLoading] = useState(false);
 
-  useEffect(() => {
-    fetchDoctors();
-  }, []);
-
-  const fetchDoctors = async () => {
+  const fetchDoctors = useCallback(async () => {
     try {
       setLoading(true);
       const response = await api.getDoctors({
@@ -88,7 +84,11 @@ const Doctors: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchTerm, specialization]);
+
+  useEffect(() => {
+    fetchDoctors();
+  }, [fetchDoctors]);
 
   const handleSearch = () => {
     fetchDoctors();

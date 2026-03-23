@@ -31,6 +31,32 @@ import {
 import { useSocket } from '../../contexts/SocketContext';
 import { useAuth } from '../../contexts/AuthContext';
 
+// ICE servers for WebRTC (STUN/TURN servers for NAT traversal)
+const iceServers = {
+  iceServers: [
+    // Google's public STUN servers
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    // Free TURN server for fallback (helps with restrictive NATs)
+    {
+      urls: 'turn:openrelay.metered.ca:80',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
+  ],
+  iceCandidatePoolSize: 10,
+};
+
 const VideoCall: React.FC = () => {
   const { id: appointmentId } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -61,32 +87,6 @@ const VideoCall: React.FC = () => {
   const [messages, setMessages] = useState<Array<{id: string, text: string, sender: string, timestamp: Date}>>([]);
   const [newMessage, setNewMessage] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
-
-  // ICE servers for WebRTC (STUN/TURN servers for NAT traversal)
-  const iceServers = {
-    iceServers: [
-      // Google's public STUN servers
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      // Free TURN server for fallback (helps with restrictive NATs)
-      {
-        urls: 'turn:openrelay.metered.ca:80',
-        username: 'openrelayproject',
-        credential: 'openrelayproject',
-      },
-      {
-        urls: 'turn:openrelay.metered.ca:443',
-        username: 'openrelayproject',
-        credential: 'openrelayproject',
-      },
-      {
-        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-        username: 'openrelayproject',
-        credential: 'openrelayproject',
-      },
-    ],
-    iceCandidatePoolSize: 10,
-  };
 
   // Initialize media devices
   useEffect(() => {
@@ -436,6 +436,7 @@ const VideoCall: React.FC = () => {
       // Reset join flag for potential re-mount
       hasJoinedCall.current = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socket, appointmentId, user?.id, isMediaReady]);
 
   // Toggle video

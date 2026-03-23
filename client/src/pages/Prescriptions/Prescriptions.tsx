@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Container,
   Typography,
@@ -82,17 +82,7 @@ const Prescriptions: React.FC = () => {
     isControlledSubstance: false,
   });
 
-  useEffect(() => {
-    fetchPrescriptions();
-  }, [statusFilter, page]);
-
-  useEffect(() => {
-    if (user?.role === 'doctor' && createOpen) {
-      fetchPatients();
-    }
-  }, [createOpen, user]);
-
-  const fetchPrescriptions = async () => {
+  const fetchPrescriptions = useCallback(async () => {
     try {
       setLoading(true);
       const params: any = { page, limit: 10 };
@@ -109,7 +99,18 @@ const Prescriptions: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [statusFilter, page]);
+
+  useEffect(() => {
+    fetchPrescriptions();
+  }, [fetchPrescriptions]);
+
+  useEffect(() => {
+    if (user?.role === 'doctor' && createOpen) {
+      fetchPatients();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createOpen, user]);
 
   const fetchPatients = async (search?: string) => {
     try {
