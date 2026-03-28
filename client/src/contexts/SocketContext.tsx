@@ -60,14 +60,10 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
         setIsConnected(false);
       });
 
-      newSocket.on('connect_error', (error) => {
-        console.error('Socket connection error:', {
-          message: error.message,
-          description: error.description,
-          context: error.context,
-          type: error.type
-        });
+      newSocket.on('connect_error', (error: any) => {
+        console.error('Socket connection error:', error.message);
         console.error('Socket URL:', socketUrl);
+        console.error('Error details:', error);
         console.error('If you see "CORS" or "Network" errors, check:');
         console.error('1. Backend CORS_ORIGIN includes your frontend URL');
         console.error('2. Backend is running and accessible');
