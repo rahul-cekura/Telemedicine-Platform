@@ -136,7 +136,8 @@ const Profile: React.FC = () => {
 
   useEffect(() => {
     fetchProfile();
-  }, [fetchProfile]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleEdit = () => {
     setIsEditing(true);

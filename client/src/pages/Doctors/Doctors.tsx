@@ -88,7 +88,8 @@ const Doctors: React.FC = () => {
 
   useEffect(() => {
     fetchDoctors();
-  }, [fetchDoctors]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSearch = () => {
     fetchDoctors();

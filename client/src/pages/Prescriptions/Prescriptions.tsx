@@ -103,7 +103,8 @@ const Prescriptions: React.FC = () => {
 
   useEffect(() => {
     fetchPrescriptions();
-  }, [fetchPrescriptions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (user?.role === 'doctor' && createOpen) {

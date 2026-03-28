@@ -114,7 +114,8 @@ const HealthRecords: React.FC = () => {
 
   useEffect(() => {
     fetchRecords();
-  }, [fetchRecords]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (user?.role === 'doctor' && (createOpen || editOpen)) {

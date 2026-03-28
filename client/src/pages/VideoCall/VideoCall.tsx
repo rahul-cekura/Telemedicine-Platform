@@ -436,7 +436,7 @@ const VideoCall: React.FC = () => {
       // Reset join flag for potential re-mount
       hasJoinedCall.current = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socket, appointmentId, user?.id, isMediaReady]);
 
   // Toggle video
