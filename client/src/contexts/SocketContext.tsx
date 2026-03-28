@@ -42,11 +42,12 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
         auth: {
           token,
         },
+        withCredentials: true, // Required for CORS
         transports: ['websocket', 'polling'], // Try WebSocket first, fallback to polling
         reconnection: true,
         reconnectionDelay: 1000,
         reconnectionAttempts: 5,
-        timeout: 20000,
+        timeout: 60000, // Match API timeout
       });
 
       newSocket.on('connect', () => {
@@ -60,7 +61,17 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
       });
 
       newSocket.on('connect_error', (error) => {
-        console.error('Connection error:', error);
+        console.error('Socket connection error:', {
+          message: error.message,
+          description: error.description,
+          context: error.context,
+          type: error.type
+        });
+        console.error('Socket URL:', socketUrl);
+        console.error('If you see "CORS" or "Network" errors, check:');
+        console.error('1. Backend CORS_ORIGIN includes your frontend URL');
+        console.error('2. Backend is running and accessible');
+        console.error('3. No browser extensions blocking WebSocket connections');
         setIsConnected(false);
       });
 

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Connection Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Telemedicine API Connection Diagnostics</h1>
+    <p>This tool tests the connection from your browser to the backend API.</p>
+
+    <div>
+        <button onclick="testConnection()">Test Backend Connection</button>
+        <button onclick="testLogin()">Test Login Endpoint</button>
+        <button onclick="clearResults()">Clear Results</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+        const API_URL = 'https://telemedicine-platform-production-0f90.up.railway.app';
+
+        function addResult(message, type = 'info') {
+            const resultsDiv = document.getElementById('results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${type}`;
+            resultDiv.innerHTML = message;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        async function testConnection() {
+            clearResults();
+            addResult(`<strong>Testing connection to:</strong> ${API_URL}`, 'info');
+
+            try {
+                const startTime = Date.now();
+                const response = await fetch(`${API_URL}/health`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const endTime = Date.now();
+
+                const data = await response.json();
+
+                addResult(`
+                    <strong>✅ Connection Successful!</strong><br>
+                    Status: ${response.status}<br>
+                    Response Time: ${endTime - startTime}ms<br>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `, 'success');
+
+                // Check CORS headers
+                const corsHeaders = {
+                    'Access-Control-Allow-Origin': response.headers.get('access-control-allow-origin'),
+                    'Access-Control-Allow-Credentials': response.headers.get('access-control-allow-credentials')
+                };
+
+                addResult(`
+                    <strong>CORS Headers:</strong>
+                    <pre>${JSON.stringify(corsHeaders, null, 2)}</pre>
+                `, 'info');
+
+            } catch (error) {
+                addResult(`
+                    <strong>❌ Connection Failed!</strong><br>
+                    Error: ${error.message}<br>
+                    Type: ${error.name}<br>
+                    <pre>${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}</pre>
+                `, 'error');
+
+                // Browser-specific diagnostics
+                if (error.message.includes('Failed to fetch')) {
+                    addResult(`
+                        <strong>Possible Causes:</strong><br>
+                        1. CORS policy blocking the request<br>
+                        2. Browser extension (ad blocker, privacy tool) blocking the request<br>
+                        3. Network/firewall blocking the connection<br>
+                        4. Backend server is down or unreachable<br>
+                        <br>
+                        <strong>Try:</strong><br>
+                        - Open Chrome DevTools (F12) → Network tab → try again<br>
+                        - Disable browser extensions temporarily<br>
+                        - Try in Incognito mode (Ctrl+Shift+N)
+                    `, 'info');
+                }
+            }
+        }
+
+        async function testLogin() {
+            addResult(`<strong>Testing Login Endpoint...</strong>`, 'info');
+
+            try {
+                const startTime = Date.now();
+                const response = await fetch(`${API_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        email: 'test@example.com',
+                        password: 'testpassword'
+                    })
+                });
+                const endTime = Date.now();
+
+                const data = await response.json();
+
+                if (response.status === 401) {
+                    addResult(`
+                        <strong>✅ Login Endpoint Reachable!</strong><br>
+                        Status: ${response.status} (Expected - invalid credentials)<br>
+                        Response Time: ${endTime - startTime}ms<br>
+                        Message: ${data.message}<br>
+                        <br>
+                        <em>This is good! The endpoint is working, you just need valid credentials.</em>
+                    `, 'success');
+                } else {
+                    addResult(`
+                        <strong>Response:</strong><br>
+                        Status: ${response.status}<br>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `, response.ok ? 'success' : 'error');
+                }
+
+            } catch (error) {
+                addResult(`
+                    <strong>❌ Login Endpoint Failed!</strong><br>
+                    Error: ${error.message}<br>
+                    <pre>${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}</pre>
+                `, 'error');
+            }
+        }
+
+        // Browser information
+        addResult(`
+            <strong>Browser Information:</strong><br>
+            User Agent: ${navigator.userAgent}<br>
+            Online: ${navigator.onLine}<br>
+            Origin: ${window.location.origin}
+        `, 'info');
+    </script>
+</body>
+</html>

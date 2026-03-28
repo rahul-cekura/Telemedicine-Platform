@@ -9,7 +9,8 @@ class ApiService {
   constructor() {
     this.api = axios.create({
       baseURL: API_BASE_URL,
-      timeout: 10000,
+      timeout: 60000, // 60 seconds for slow connections and cold starts
+      withCredentials: true, // Required for CORS with credentials
       headers: {
         'Content-Type': 'application/json',
       },
@@ -96,8 +97,22 @@ class ApiService {
               toast.error(data.message || 'An error occurred');
           }
         } else if (error.request) {
-          toast.error('Network error. Please check your connection.');
+          // Network error - no response received
+          console.error('Network error details:', {
+            message: error.message,
+            code: error.code,
+            request: error.request
+          });
+
+          if (error.code === 'ECONNABORTED') {
+            toast.error('Request timeout. Please try again.');
+          } else if (error.message.includes('Network Error')) {
+            toast.error('Network error. Check your connection or try a different browser.');
+          } else {
+            toast.error('Cannot reach server. Please check your connection.');
+          }
         } else {
+          console.error('Unexpected error:', error);
           toast.error('An unexpected error occurred');
         }
         
